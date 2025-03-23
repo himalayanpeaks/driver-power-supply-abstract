@@ -1,5 +1,4 @@
 # OneDriver.PowerSupply.Abstract
-# OneDriver.PowerSupply.Abstract
 
 🔌 **OneDriver.PowerSupply.Abstract** provides the core abstraction and interfaces for implementing power supply drivers within the [OneDriver](https://github.com/himalayanpeaks/OneDriver) ecosystem.
 
