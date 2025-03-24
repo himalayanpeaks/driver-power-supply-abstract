@@ -1,78 +1,106 @@
-name: .NET CI & NuGet Publish
+name: .NET Build, Test and Publish
 
 on:
   push:
     branches: ["main"]
     tags:
-      - '*.*.*'  # version tags like 1.0.0, 2.1.3
+      - '*.*.*'  # Matches tags like 1.0.0, 2.1.3
+  pull_request:
+    branches: ["main"]
 
 jobs:
-  build-test-pack:
+  build:
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
     runs-on: windows-latest
 
+    env:
+      Solution_Name: OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.sln
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup .NET SDK
+      - name: Setup .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: 8.0.x
 
-      - name: Restore & Build
-        run: |
-          dotnet restore OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj
-          dotnet build OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj --configuration Release --no-restore
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Build and Run Unit Tests
-        run: |
-          dotnet test OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.UnitTest/OneDriver.PowerSupply.Abstract.UnitTest.csproj --configuration Release --verbosity normal
+      - name: Restore dependencies
+        run: msbuild $env:Solution_Name /t:Restore /p:Configuration=${{ matrix.configuration }}
 
-      - name: Set version from tag
-        id: version
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          $tag = "${{ github.ref_name }}"
-          echo "Using version: $tag"
-          echo "PackageVersion=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - name: Build solution
+        run: msbuild $env:Solution_Name /p:Configuration=${{ matrix.configuration }}
 
-      - name: Pack NuGet Package
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          dotnet pack OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj `
-            --configuration Release `
-            --output "${{ github.workspace }}\nupkgs" `
-            /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
+      - name: Execute unit tests
+        run: dotnet test $env:Solution_Name /p:Configuration=${{ matrix.configuration }} --no-build --verbosity normal
 
-      - name: Debug: List contents of ./nupkgs
-        if: startsWith(github.ref, 'refs/tags/')
-        run: dir ./nupkgs
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
 
-      - name: Fail if no package was created
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "./nupkgs/*.nupkg")) {
-            Write-Error "No .nupkg file found in ./nupkgs. dotnet pack might have failed."
-            exit 1
-          }
+    env:
+      Solution_Name: OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.sln
 
-      - name: Push to NuGet
-        if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          dotnet nuget push "./nupkgs/*.nupkg" `
-            --source https://api.nuget.org/v3/index.json `
-            --api-key "${{ secrets.NUGET_API_KEY }}" `
-            --skip-duplicate
-
-      - name: Upload built package
-        if: success()
-        uses: actions/upload-artifact@v4
+    steps:
+      - uses: actions/checkout@v4
         with:
-          name: packed-nuget
-          path: ./nupkgs/*.nupkg
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+              $ver = "${{ github.ref_name }}"
+          } else {
+              $lastTag = git describe --tags --abbrev=0 2>$null
+              if ($lastTag) {
+                  $count = git rev-list --count "$lastTag"..HEAD
+                  $ver = "$lastTag-alpha.$count"
+              } else {
+                  $count = git rev-list --count HEAD
+                  $ver = "0.0.1.$count"
+              }
+          }
+          echo "PackageVersion=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Determined version: $ver"
+        
+      - name: Pack NuGet Package
+        run: |
+            dotnet pack $env:Solution_Name `
+              --configuration Release `
+              --output ./packages `
+              /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
+        
+      - name: Debug - Verify Packages Exist
+        run: dir ./packages/
+        
+      - name: Publish NuGet Package
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          dotnet nuget push ".\packages\*.nupkg" `
+            --source https://api.nuget.org/v3/index.json `
+            --api-key ${{ secrets.NUGET_API_KEY }} `
+            --skip-duplicate
+      
+        
+
+      - name: Upload NuGet Artifact (for non-tagged builds)
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: nuget-preview-packages
+          path: ./packages/*.nupkg
