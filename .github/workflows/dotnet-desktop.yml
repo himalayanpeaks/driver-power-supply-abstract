@@ -30,36 +30,34 @@ jobs:
         run: |
           dotnet test OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.UnitTest/OneDriver.PowerSupply.Abstract.UnitTest.csproj --configuration Release --verbosity normal
 
-
       - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/')
         id: version
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
           echo "Using version: $tag"
           echo "PackageVersion=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-        if: startsWith(github.ref, 'refs/tags/')
 
       - name: Pack NuGet Package
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           dotnet pack OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj `
-          --configuration Release `
-          --output ./nupkgs `
-          /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
-          if: startsWith(github.ref, 'refs/tags/')
-
+            --configuration Release `
+            --output ./nupkgs `
+            /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
 
       - name: Push to NuGet
-        run: |
-          dotnet nuget push "./nupkgs/*.nupkg" \
-            --source https://api.nuget.org/v3/index.json \
-            --api-key "${{ secrets.NUGET_API_KEY }}" \
-            --skip-duplicate
         if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          dotnet nuget push "./nupkgs/*.nupkg" `
+            --source https://api.nuget.org/v3/index.json `
+            --api-key "${{ secrets.NUGET_API_KEY }}" `
+            --skip-duplicate
 
       - name: Upload built package
-        uses: actions/upload-artifact@v4
         if: success()
+        uses: actions/upload-artifact@v4
         with:
           name: packed-nuget
           path: ./nupkgs/*.nupkg
