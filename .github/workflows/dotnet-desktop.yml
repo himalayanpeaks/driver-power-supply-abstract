@@ -44,8 +44,21 @@ jobs:
         run: |
           dotnet pack OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj `
             --configuration Release `
-            --output ./nupkgs `
+            --output "${{ github.workspace }}\nupkgs" `
             /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
+
+      - name: Debug: List contents of ./nupkgs
+        if: startsWith(github.ref, 'refs/tags/')
+        run: dir ./nupkgs
+
+      - name: Fail if no package was created
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "./nupkgs/*.nupkg")) {
+            Write-Error "No .nupkg file found in ./nupkgs. dotnet pack might have failed."
+            exit 1
+          }
 
       - name: Push to NuGet
         if: startsWith(github.ref, 'refs/tags/')
