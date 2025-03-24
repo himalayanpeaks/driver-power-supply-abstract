@@ -42,11 +42,12 @@ jobs:
 
       - name: Pack NuGet Package
         run: |
-          dotnet pack OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj \
-            --configuration Release \
-            --output ./nupkgs \
-            /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
-        if: startsWith(github.ref, 'refs/tags/')
+          dotnet pack OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj `
+          --configuration Release `
+          --output ./nupkgs `
+          /p:PackageVersion=${{ steps.version.outputs.PackageVersion }}
+          if: startsWith(github.ref, 'refs/tags/')
+
 
       - name: Push to NuGet
         run: |
