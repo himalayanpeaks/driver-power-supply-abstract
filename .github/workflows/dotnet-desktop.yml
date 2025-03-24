@@ -26,9 +26,10 @@ jobs:
           dotnet restore OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj
           dotnet build OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.csproj --configuration Release --no-restore
 
-      - name: Run Unit Tests
+      - name: Build and Run Unit Tests
         run: |
-          dotnet test OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.UnitTest/OneDriver.PowerSupply.Abstract.UnitTest.csproj --configuration Release --no-build --verbosity normal
+          dotnet test OneDriver.PowerSupply.Abstract/OneDriver.PowerSupply.Abstract.UnitTest/OneDriver.PowerSupply.Abstract.UnitTest.csproj --configuration Release --verbosity normal
+
 
       - name: Set version from tag
         id: version
