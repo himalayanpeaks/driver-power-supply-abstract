@@ -68,7 +68,7 @@ namespace OneDriver.PowerSupply.Abstract
 
         private void AllChannelsOff()
         {
-            throw new NotImplementedException();
+            PowerSupply.AllChannelsOff();
         }
 
         private bool CanAllChannelsOn()
@@ -78,7 +78,7 @@ namespace OneDriver.PowerSupply.Abstract
 
         private void AllChannelsOn()
         {
-            throw new NotImplementedException();
+            PowerSupply.AllChannelsOn();
         }
 
         public ICommand CommandAllChannelsOn { get; }
